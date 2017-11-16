@@ -73,7 +73,7 @@ momentum<-function(f,g,x_init,stp=.001,maxIter=10000,momentum=.9,wait=1){
   }
   as.data.frame(res[1:t,])
 }
-res[["mtm"]]<-momentum(rosenbrock_f,rosenbrock_g,c(3,5))
+res[["mtm"]]<-momentum(rosenbrock_f,rosenbrock_g,c(3,5),stp=.002)
 base_plot+geom_path(data=res$mtm,aes(x,y))
 ```
 
@@ -99,7 +99,7 @@ nesterov<-function(f,g,x_init,stp=.001,maxIter=10000,momentum=.9,wait=1){
   }
   as.data.frame(res[1:t,])
 }
-res[["nstv"]]<-nesterov(rosenbrock_f,rosenbrock_g,c(3,5))
+res[["nstv"]]<-nesterov(rosenbrock_f,rosenbrock_g,c(3,5),stp=.002)
 base_plot+geom_path(data=res$nstv,aes(x,y))
 ```
 
@@ -170,7 +170,46 @@ adamax<-function(f,g,x_init,maxIter=10000,stp=.002,
   }
   as.data.frame(res[1:t,])
 }
-res[["admx"]]<-adamax(rosenbrock_f,rosenbrock_g,c(3,5),stp=.5)
+res[["admx"]]<-adamax(rosenbrock_f,rosenbrock_g,c(3,5),stp=5)
 base_plot+geom_path(data=res$admx,aes(x,y))
 #with(tail(res$admx,500),plot(x,y,type="l"))
+```
+
+nadam- Adam with nesterov momentum
+
+```{r}
+nadam<-function(f,g,x_init,maxIter=10000,stp=.002,
+                 beta1=.9,beta2=.999){
+  k<-length(x_init)
+  chg<-100
+  t<-1
+  res<-matrix(0,nrow=maxIter,ncol=3)
+  colnames(res)<-c("x","y","f")
+  res[1,]<-c(x_init,f(x_init))
+  m<-rep(0,k)
+  u<-rep(0,k)
+  while(abs(chg)>1e-6 && t<maxIter){
+    t<-t+1
+    grad<-g(res[t-1,1:k])
+    m<-beta1*m+(1-beta1)*grad
+    u<-max(beta2*u,abs(grad))
+    velo<- -(stp/u)*(beta1*m+grad*(1-beta1)/(1-beta1^t))
+    res[t,1:k]<-res[t-1,1:k]+velo
+    res[t,k+1]<-f(res[t,1:k])
+    chg<-res[t,k+1]-res[t-1,k+1]
+  }
+  as.data.frame(res[1:t,])
+}
+res[["nadm"]]<-nadam(rosenbrock_f,rosenbrock_g,c(3,5),stp=5)
+base_plot+geom_path(data=res$nadm,aes(x,y))
+#with(tail(res$admx,500),plot(x,y,type="l"))
+```
+
+summary of results
+
+```{r}
+pd2<-data.frame(method=names(res),nSteps=sapply(res,nrow))
+pd2$err<-sapply(res,function(x){x[nrow(x),3]})
+ggplot(pd2)+geom_bar(aes(x=method,y=log(err)),stat="identity")
+ggplot(pd2)+geom_bar(aes(x=method,y=nSteps),stat="identity")
 ```
