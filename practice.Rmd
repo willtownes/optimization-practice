@@ -1,0 +1,55 @@
+---
+title: "Optimization Practice"
+author: "Will Townes"
+date: "11/15/2017"
+output: html_document
+---
+
+Rosenbrock function, minimum is at (1,1)
+
+```{r}
+library(ggplot2)
+```
+
+```{r}
+rosenbrock<-function(x,y){
+  (1-x)^2 + 10*(y-x^2)^2
+}
+f <- function(x){
+  rosenbrock(x[1],x[2])
+}
+g <- function(x){
+  dx1<- -2*(1-x[1]) - 20*(x[2]-x[1]^2)*2*x[1]
+  dx2<- 20*(x[2]-x[1]^2)
+  c(dx1,dx2)
+}
+```
+
+```{r}
+pd<-expand.grid(x=seq(0,3,.1),y=seq(0,6,.1))
+pd$z<-rosenbrock(pd$x,pd$y)
+ggplot(pd,aes(x=x,y=y))+geom_raster(aes(fill=log1p(z)))+scale_fill_continuous(low="red",high="blue")
+ggplot(pd,aes(x=x,y=y))+geom_contour(aes(z=log1p(z)))
+```
+
+simple gradient descent
+
+```{r}
+stp<-.001
+delta<-100
+maxIter<-1000000
+counter<-1
+res<-matrix(0,nrow=maxIter,ncol=3)
+colnames(res)<-c("x","y","f")
+res[1,]<-c(3,5,rosenbrock(-5,0))
+while(abs(delta)>1e-6 && counter<maxIter){
+  counter<-counter+1
+  grad<-g(res[counter-1,1:2])
+  res[counter,1:2]<-res[counter-1,1:2]-stp*grad
+  res[counter,3]<-f(res[counter,1:2])
+  delta<-res[counter,3]-res[counter-1,3]
+}
+res<-res[1:counter,]
+plot(res[,1],res[,2],type="l",xlim=c(0,3),ylim=c(0,6))
+plot(res[,1],res[,2],type="l",xlim=c(1,1.5),ylim=c(1,2))
+```
