@@ -9,29 +9,11 @@ output: html_document
 library(ggplot2)
 ```
 
-### Rosenbrock function, minimum is at (1,1)
+### Define Algorithms
 
 ```{r}
-rosenbrock_f <- function(x){
-  (1-x[1])^2 + 10*(x[2]-x[1]^2)^2
-}
-rosenbrock_g <- function(x){
-  dx1<- -2*(1-x[1]) - 20*(x[2]-x[1]^2)*2*x[1]
-  dx2<- 20*(x[2]-x[1]^2)
-  c(dx1,dx2)
-}
-solution<-data.frame(x=1,y=1)
-
-pd<-expand.grid(x=seq(0,3,.1),y=seq(0,6,.1))
-pd$z<-apply(pd,1,rosenbrock_f)
-ggplot(pd,aes(x=x,y=y))+geom_raster(aes(fill=log1p(z)))+scale_fill_continuous(low="red",high="blue")
-(base_plot<-ggplot(pd)+geom_contour(aes(x=x,y=y,z=log1p(z)))+geom_point(data=solution,aes(x,y),colour="red",size=10,shape="x"))
-```
-
-simple gradient descent
-
-```{r}
-grad_descent<-function(f,g,x_init,stp=.001,maxIter=10000){
+MAXITER<-2000
+grad_descent<-function(f,g,x_init,stp=.001,maxIter=MAXITER){
   delta<-100
   t<-1
   res<-matrix(0,nrow=maxIter,ncol=3)
@@ -46,15 +28,8 @@ grad_descent<-function(f,g,x_init,stp=.001,maxIter=10000){
   }
   as.data.frame(res[1:t,])
 }
-res<-list()
-res[["gd"]]<-grad_descent(rosenbrock_f,rosenbrock_g,c(3,5))
-base_plot+geom_path(aes(x=x,y=y),data=res$gd)
-```
 
-gradient descent with momentum
-
-```{r}
-momentum<-function(f,g,x_init,stp=.001,maxIter=10000,momentum=.9,wait=1){
+momentum<-function(f,g,x_init,stp=.001,maxIter=MAXITER,momentum=.9,wait=1){
   delta<-100
   t<-1
   res<-matrix(0,nrow=maxIter,ncol=3)
@@ -73,14 +48,8 @@ momentum<-function(f,g,x_init,stp=.001,maxIter=10000,momentum=.9,wait=1){
   }
   as.data.frame(res[1:t,])
 }
-res[["mtm"]]<-momentum(rosenbrock_f,rosenbrock_g,c(3,5),stp=.002)
-base_plot+geom_path(data=res$mtm,aes(x,y))
-```
 
-gradient descent with Nesterov momentum
-
-```{r}
-nesterov<-function(f,g,x_init,stp=.001,maxIter=10000,momentum=.9,wait=1){
+nesterov<-function(f,g,x_init,stp=.001,maxIter=MAXITER,momentum=.9,wait=1){
   delta<-100
   t<-1
   res<-matrix(0,nrow=maxIter,ncol=3)
@@ -99,14 +68,8 @@ nesterov<-function(f,g,x_init,stp=.001,maxIter=10000,momentum=.9,wait=1){
   }
   as.data.frame(res[1:t,])
 }
-res[["nstv"]]<-nesterov(rosenbrock_f,rosenbrock_g,c(3,5),stp=.002)
-base_plot+geom_path(data=res$nstv,aes(x,y))
-```
 
-improved rprop
-
-```{r}
-irprop<-function(f,g,x_init,maxIter=10000,eta_plus=1.2,eta_minus=.5,
+irprop<-function(f,g,x_init,maxIter=MAXITER,eta_plus=1.2,eta_minus=.5,
                  delta_max=50,delta_min=0,delta0=.5){
   k<-length(x_init)
   chg<-100
@@ -140,15 +103,7 @@ irprop<-function(f,g,x_init,maxIter=10000,eta_plus=1.2,eta_minus=.5,
   as.data.frame(res[1:t,])
 }
 
-res[["irprop"]]<-irprop(rosenbrock_f,rosenbrock_g,c(3,5))
-base_plot+geom_path(data=res$irprop,aes(x,y))
-#with(tail(res$irprop,20),plot(x,y,type="l"))
-```
-
-adamax- Adam with infinity norm
-
-```{r}
-adamax<-function(f,g,x_init,maxIter=10000,stp=.002,
+adamax<-function(f,g,x_init,maxIter=MAXITER,stp=.002,
                  beta1=.9,beta2=.999){
   k<-length(x_init)
   chg<-100
@@ -170,15 +125,8 @@ adamax<-function(f,g,x_init,maxIter=10000,stp=.002,
   }
   as.data.frame(res[1:t,])
 }
-res[["admx"]]<-adamax(rosenbrock_f,rosenbrock_g,c(3,5),stp=5)
-base_plot+geom_path(data=res$admx,aes(x,y))
-#with(tail(res$admx,500),plot(x,y,type="l"))
-```
 
-nadam- Adam with nesterov momentum
-
-```{r}
-nadam<-function(f,g,x_init,maxIter=10000,stp=.002,
+nadam<-function(f,g,x_init,maxIter=MAXITER,stp=.002,
                  beta1=.9,beta2=.999){
   k<-length(x_init)
   chg<-100
@@ -200,7 +148,69 @@ nadam<-function(f,g,x_init,maxIter=10000,stp=.002,
   }
   as.data.frame(res[1:t,])
 }
-res[["nadm"]]<-nadam(rosenbrock_f,rosenbrock_g,c(3,5),stp=5)
+```
+
+### Rosenbrock function, minimum is at (1,1)
+
+```{r}
+rosenbrock_f <- function(x){
+  (1-x[1])^2 + 10*(x[2]-x[1]^2)^2
+}
+rosenbrock_g <- function(x){
+  dx1<- -2*(1-x[1]) - 20*(x[2]-x[1]^2)*2*x[1]
+  dx2<- 20*(x[2]-x[1]^2)
+  c(dx1,dx2)
+}
+solution<-data.frame(x=1,y=1)
+
+pd<-expand.grid(x=seq(-3,3,.01),y=seq(0,6,.01))
+pd$z<-apply(pd,1,rosenbrock_f)
+ggplot(pd,aes(x=x,y=y))+geom_raster(aes(fill=log1p(z)))+scale_fill_continuous(low="red",high="blue")
+(base_plot<-ggplot(pd)+geom_contour(aes(x=x,y=y,z=log1p(z)))+geom_point(data=solution,aes(x,y),colour="red",size=10,shape="x"))
+```
+
+simple gradient descent
+
+```{r}
+res<-list()
+res[["gd"]]<-grad_descent(rosenbrock_f,rosenbrock_g,c(3,5))
+base_plot+geom_path(aes(x=x,y=y),data=res$gd)
+```
+
+gradient descent with momentum
+
+```{r}
+res[["mtm"]]<-momentum(rosenbrock_f,rosenbrock_g,c(3,5),stp=.002)
+base_plot+geom_path(data=res$mtm,aes(x,y))
+```
+
+gradient descent with Nesterov momentum
+
+```{r}
+res[["nstv"]]<-nesterov(rosenbrock_f,rosenbrock_g,c(3,5),stp=.002)
+base_plot+geom_path(data=res$nstv,aes(x,y))
+```
+
+improved rprop
+
+```{r}
+res[["irprop"]]<-irprop(rosenbrock_f,rosenbrock_g,c(3,5))
+base_plot+geom_path(data=res$irprop,aes(x,y))
+#with(tail(res$irprop,20),plot(x,y,type="l"))
+```
+
+adamax- Adam with infinity norm
+
+```{r}
+res[["admx"]]<-adamax(rosenbrock_f,rosenbrock_g,c(3,5),stp=3)
+base_plot+geom_path(data=res$admx,aes(x,y))
+#with(tail(res$admx,500),plot(x,y,type="l"))
+```
+
+nadam- Adam with nesterov momentum
+
+```{r}
+res[["nadm"]]<-nadam(rosenbrock_f,rosenbrock_g,c(3,5),stp=3)
 base_plot+geom_path(data=res$nadm,aes(x,y))
 #with(tail(res$admx,500),plot(x,y,type="l"))
 ```
