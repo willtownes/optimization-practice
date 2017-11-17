@@ -117,7 +117,7 @@ adamax<-function(f,g,x_init,maxIter=MAXITER,stp=.002,
     t<-t+1
     grad<-g(res[t-1,1:k])
     m<-beta1*m+(1-beta1)*grad
-    u<-max(beta2*u,abs(grad))
+    u<-pmax(beta2*u,abs(grad))
     velo<- -(stp/(1-beta1^t))*m/u
     res[t,1:k]<-res[t-1,1:k]+velo
     res[t,k+1]<-f(res[t,1:k])
@@ -140,8 +140,8 @@ nadam<-function(f,g,x_init,maxIter=MAXITER,stp=.002,
     t<-t+1
     grad<-g(res[t-1,1:k])
     m<-beta1*m+(1-beta1)*grad
-    u<-max(beta2*u,abs(grad))
-    velo<- -(stp/u)*(beta1*m+grad*(1-beta1)/(1-beta1^t))
+    u<-pmax(beta2*u,abs(grad))
+    velo<- -(stp/u)*(beta1*m+grad*(1-beta1))/(1-beta1^t)
     res[t,1:k]<-res[t-1,1:k]+velo
     res[t,k+1]<-f(res[t,1:k])
     chg<-res[t,k+1]-res[t-1,k+1]
