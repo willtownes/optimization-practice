@@ -148,6 +148,33 @@ nadam<-function(f,g,x_init,maxIter=MAXITER,stp=.002,
   }
   as.data.frame(res[1:t,])
 }
+
+l2norm<-function(x){sqrt(sum(x^2))}
+
+avagrad<-function(f,g,x_init,maxIter=MAXITER,stp=.1,
+                 beta1=.9,beta2=.999,adam_eps_param=.1){
+  #Savarese et al 2019 algorithm 2
+  #stp=alpha, adam_eps_param=epsilon
+  k<-length(x_init) #Savarese calls this "d"
+  chg<-100
+  t<-1
+  res<-matrix(0,nrow=maxIter,ncol=3)
+  colnames(res)<-c("x","y","f")
+  res[1,]<-c(x_init,f(x_init))
+  m<-rep(0,k)
+  v<-rep(0,k)
+  while(abs(chg)>1e-6 && t<maxIter){
+    t<-t+1
+    grad<-g(res[t-1,1:k])
+    m<-beta1*m+(1-beta1)*grad
+    eta<-1/(adam_eps_param+sqrt(v))
+    res[t,1:k]<-res[t-1,1:k] - stp*(eta/l2norm(eta/sqrt(k)))*m
+    v<-beta2*v+(1-beta2)*grad^2
+    res[t,k+1]<-f(res[t,1:k])
+    chg<-res[t,k+1]-res[t-1,k+1]
+  }
+  as.data.frame(res[1:t,])
+}
 ```
 
 ### Rosenbrock function, minimum is at (1,1)
@@ -215,11 +242,18 @@ base_plot+geom_path(data=res$nadm,aes(x,y))
 #with(tail(res$admx,500),plot(x,y,type="l"))
 ```
 
+avagrad
+
+```{r}
+res[["avagrad"]]<-avagrad(rosenbrock_f,rosenbrock_g,c(3,5),stp=.1,adam_eps_param =.1)
+base_plot+geom_path(data=res$avagrad,aes(x,y))
+```
+
 summary of results
 
 ```{r}
 pd2<-data.frame(method=names(res),nSteps=sapply(res,nrow))
 pd2$err<-sapply(res,function(x){x[nrow(x),3]})
-ggplot(pd2)+geom_bar(aes(x=method,y=log(err)),stat="identity")
+ggplot(pd2)+geom_bar(aes(x=method,y=err),stat="identity")+scale_y_log10()
 ggplot(pd2)+geom_bar(aes(x=method,y=nSteps),stat="identity")
 ```
