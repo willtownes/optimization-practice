@@ -7,6 +7,10 @@ output: html_document
 
 ```{r}
 library(ggplot2)
+dir.create("plots")
+ggs<-function(x,w=6,h=4){
+  ggsave(file=paste0("plots/",x,".pdf"),width=w,height=h)
+}
 ```
 
 ### Define Algorithms
@@ -192,8 +196,9 @@ solution<-data.frame(x=1,y=1)
 
 pd<-expand.grid(x=seq(-3,3,.01),y=seq(0,6,.01))
 pd$z<-apply(pd,1,rosenbrock_f)
-ggplot(pd,aes(x=x,y=y))+geom_raster(aes(fill=log1p(z)))+scale_fill_continuous(low="red",high="blue")
-(base_plot<-ggplot(pd)+geom_contour(aes(x=x,y=y,z=log1p(z)))+geom_point(data=solution,aes(x,y),colour="red",size=10,shape="x"))
+ggplot(pd,aes(x=x,y=y))+geom_raster(aes(fill=log1p(z)))+scale_fill_continuous(low="red",high="blue")+theme_classic()
+(base_plot<-ggplot(pd)+geom_contour(aes(x=x,y=y,z=log1p(z),colour=..level..))+scale_colour_continuous(low="red",high="blue")+geom_point(data=solution,aes(x,y),colour="red",size=10,shape="x")+theme_bw())
+ggs("rosenbrock")
 ```
 
 simple gradient descent
@@ -202,6 +207,7 @@ simple gradient descent
 res<-list()
 res[["gd"]]<-grad_descent(rosenbrock_f,rosenbrock_g,c(3,5))
 base_plot+geom_path(aes(x=x,y=y),data=res$gd)
+ggs("gd")
 ```
 
 gradient descent with momentum
@@ -209,6 +215,7 @@ gradient descent with momentum
 ```{r}
 res[["mtm"]]<-momentum(rosenbrock_f,rosenbrock_g,c(3,5),stp=.002)
 base_plot+geom_path(data=res$mtm,aes(x,y))
+ggs("mtm")
 ```
 
 gradient descent with Nesterov momentum
@@ -216,6 +223,7 @@ gradient descent with Nesterov momentum
 ```{r}
 res[["nstv"]]<-nesterov(rosenbrock_f,rosenbrock_g,c(3,5),stp=.002)
 base_plot+geom_path(data=res$nstv,aes(x,y))
+ggs("nstv")
 ```
 
 improved rprop
@@ -232,6 +240,7 @@ adamax- Adam with infinity norm
 res[["admx"]]<-adamax(rosenbrock_f,rosenbrock_g,c(3,5),stp=3)
 base_plot+geom_path(data=res$admx,aes(x,y))
 #with(tail(res$admx,500),plot(x,y,type="l"))
+ggs("admx")
 ```
 
 nadam- Adam with nesterov momentum
@@ -240,6 +249,7 @@ nadam- Adam with nesterov momentum
 res[["nadm"]]<-nadam(rosenbrock_f,rosenbrock_g,c(3,5),stp=3)
 base_plot+geom_path(data=res$nadm,aes(x,y))
 #with(tail(res$admx,500),plot(x,y,type="l"))
+ggs("nadm")
 ```
 
 avagrad
