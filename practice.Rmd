@@ -5,6 +5,7 @@ output: html_document
 ---
 
 ```{r}
+library(nloptr)
 library(ggplot2)
 dir.create("plots")
 ggs<-function(x,w=6,h=4){
@@ -242,6 +243,16 @@ pd$z<-apply(pd,1,rosenbrock_f)
 ggplot(pd,aes(x=x,y=y))+geom_raster(aes(fill=log1p(z)))+scale_fill_continuous(low="red",high="blue")+theme_classic()
 (base_plot<-ggplot(pd)+geom_contour(aes(x=x,y=y,z=log1p(z),colour=..level..))+scale_colour_continuous(low="red",high="blue")+geom_point(data=solution,aes(x,y),colour="red",size=10,shape="x")+theme_bw())
 ggs("rosenbrock")
+```
+
+built-in solver nloptr L-BFGS
+
+```{r}
+nloptr_lbfgs<-function(f,g,x_init,maxIter=MAXITER){
+  opts<-list(algorithm="NLOPT_LD_LBFGS",ftol_abs=TOLERANCE)
+  nloptr(x0=x_init,eval_f=function(x){f(x)},eval_grad_f=function(x){g(x)},opts=opts)
+}
+res[["nloptr"]]<-nloptr_lbfgs(rosenbrock_f,rosenbrock_g,c(3,5))
 ```
 
 simple gradient descent
