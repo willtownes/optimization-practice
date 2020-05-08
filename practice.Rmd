@@ -238,10 +238,11 @@ rosenbrock_h <- function(x,a=1,b=10){
 }
 solution<-data.frame(x=1,y=1)
 
-pd<-expand.grid(x=seq(-4,4,.04),y=seq(-3,12,.04))
+xlo<- -4; xhi<- 4; ylo<- -3; yhi<-12
+pd<-expand.grid(x=seq(xlo,xhi,.04),y=seq(ylo,yhi,.04))
 pd$z<-apply(pd,1,rosenbrock_f)
 ggplot(pd,aes(x=x,y=y))+geom_raster(aes(fill=log1p(z)))+scale_fill_continuous(low="red",high="blue")+theme_classic()
-(base_plot<-ggplot(pd)+geom_contour(aes(x=x,y=y,z=log1p(z),colour=..level..))+scale_colour_continuous(low="red",high="blue")+geom_point(data=solution,aes(x,y),colour="red",size=10,shape="x")+theme_bw())
+(base_plot<-ggplot(pd)+geom_contour(aes(x=x,y=y,z=log1p(z),colour=..level..))+scale_colour_continuous(low="red",high="blue")+geom_point(data=solution,aes(x,y),colour="red",size=10,shape="x")+theme_bw()+coord_cartesian(xlim=c(xlo,xhi),ylim=c(ylo,yhi)))
 ggs("rosenbrock")
 ```
 
@@ -249,10 +250,28 @@ built-in solver nloptr L-BFGS
 
 ```{r}
 nloptr_lbfgs<-function(f,g,x_init,maxIter=MAXITER){
-  opts<-list(algorithm="NLOPT_LD_LBFGS",ftol_abs=TOLERANCE)
-  nloptr(x0=x_init,eval_f=function(x){f(x)},eval_grad_f=function(x){g(x)},opts=opts)
+  opts<-list(algorithm="NLOPT_LD_LBFGS",ftol_abs=TOLERANCE,maxeval=maxIter)
+  res<-matrix(0,nrow=maxIter,ncol=3)
+  colnames(res)<-c("x","y","f")
+  t<-0
+  ff<-function(x){
+    t<<-t+1
+    res[t,1:2]<<-x
+    return(res[t,3]<<-f(x))
+  }
+  gg<-function(x){ g(x) }
+  fit<-nloptr(x0=x_init,eval_f=ff,eval_grad_f=gg,opts=opts)
+  if(fit$status<0){
+    warning("NLOPT failed to converge with status: ",fit$status)
+  } else if(fit$status==5){
+    warning("NLOPT reached max iteration limit without converging!")
+  } else {
+    message("NLOPT converged with status: ",fit$status)
+  }
+  unique(as.data.frame(res[1:t,]))
 }
 res[["nloptr"]]<-nloptr_lbfgs(rosenbrock_f,rosenbrock_g,c(3,5))
+base_plot+geom_path(aes(x=x,y=y),data=res$nloptr)
 ```
 
 simple gradient descent
