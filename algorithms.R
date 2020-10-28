@@ -1,23 +1,12 @@
----
-title: "Optimization Practice"
-author: "Will Townes"
-output: html_document
----
+#Optimization algorithms
 
-```{r}
-library(nloptr)
-library(ggplot2)
-dir.create("plots")
-ggs<-function(x,w=6,h=4){
-  ggsave(file=paste0("plots/",x,".pdf"),width=w,height=h)
-}
-```
-
-### Define Algorithms
-
-```{r}
 MAXITER<-2000
 TOLERANCE<-1e-6
+
+l2norm<-function(x){sqrt(sum(x^2))}
+
+############## First Order ##############
+
 grad_descent<-function(f,g,x_init,stp=.001,maxIter=MAXITER){
   delta<-100
   t<-1
@@ -85,7 +74,7 @@ irprop<-function(f,g,x_init,maxIter=MAXITER,eta_plus=1.2,eta_minus=.5,
   delta_old<-delta<-delta0*rep(1,k)
   dw<-grad_old<-rep(0,k)
   while(abs(chg)>TOLERANCE && t<maxIter){
-  #while(t<maxIter){
+    #while(t<maxIter){
     grad<-g(res[t,1:k])
     ind<-sign(grad_old)*sign(grad)
     delta[ind>0]<-min(delta_old[ind>0]*eta_plus, delta_max)
@@ -132,7 +121,7 @@ adamax<-function(f,g,x_init,maxIter=MAXITER,stp=.002,
 }
 
 nadam<-function(f,g,x_init,maxIter=MAXITER,stp=.002,
-                 beta1=.9,beta2=.999){
+                beta1=.9,beta2=.999){
   k<-length(x_init)
   chg<-100
   t<-1
@@ -154,10 +143,8 @@ nadam<-function(f,g,x_init,maxIter=MAXITER,stp=.002,
   as.data.frame(res[1:t,])
 }
 
-l2norm<-function(x){sqrt(sum(x^2))}
-
 avagrad<-function(f,g,x_init,maxIter=MAXITER,stp=.1,
-                 beta1=.9,beta2=.999,adam_eps_param=.1){
+                  beta1=.9,beta2=.999,adam_eps_param=.1){
   #Savarese et al 2019 algorithm 2
   #stp=alpha, adam_eps_param=epsilon
   #defaults copied from https://github.com/lolemacs/avagrad/blob/master/optimizers.py
@@ -182,6 +169,30 @@ avagrad<-function(f,g,x_init,maxIter=MAXITER,stp=.1,
   as.data.frame(res[1:t,])
 }
 
+nloptr_lbfgs<-function(f,g,x_init,maxIter=MAXITER){
+  opts<-list(algorithm="NLOPT_LD_LBFGS",ftol_abs=TOLERANCE,maxeval=maxIter)
+  res<-matrix(0,nrow=maxIter,ncol=3)
+  colnames(res)<-c("x","y","f")
+  t<-0
+  ff<-function(x){
+    t<<-t+1
+    res[t,1:2]<<-x
+    return(res[t,3]<<-f(x))
+  }
+  gg<-function(x){ g(x) }
+  fit<-nloptr::nloptr(x0=x_init,eval_f=ff,eval_grad_f=gg,opts=opts)
+  if(fit$status<0){
+    warning("NLOPT failed to converge with status: ",fit$status)
+  } else if(fit$status==5){
+    warning("NLOPT reached max iteration limit without converging!")
+  } else {
+    message("NLOPT converged with status: ",fit$status)
+  }
+  unique(as.data.frame(res[1:t,]))
+}
+
+############## First Order ##############
+
 newton_full<-function(f,g,h,x_init,maxIter=MAXITER){
   k<-length(x_init)
   chg<-100
@@ -190,6 +201,7 @@ newton_full<-function(f,g,h,x_init,maxIter=MAXITER){
   colnames(res)<-c("x","y","f")
   res[1,]<-c(x_init,f(x_init))
   while(abs(chg)>TOLERANCE && t<maxIter){
+    #message("t=",t,"chg=",signif(chg,3))
     t<-t+1
     grad<-g(res[t-1,1:k])
     hess<-h(res[t-1,1:k])
@@ -217,147 +229,3 @@ newton_diag<-function(f,g,h,x_init,maxIter=MAXITER,stp=.1){
   }
   as.data.frame(res[1:t,])
 }
-```
-
-### Rosenbrock function, minimum is at (1,1)
-
-```{r}
-rosenbrock_f <- function(x,a=1,b=10){
-  (a-x[1])^2 + b*(x[2]-x[1]^2)^2
-}
-rosenbrock_g <- function(x,a=1,b=10){
-  dx1<- -2*(a-x[1]) - 2*b*(x[2]-x[1]^2)*2*x[1]
-  dx2<- 2*b*(x[2]-x[1]^2)
-  c(dx1,dx2)
-}
-rosenbrock_h <- function(x,a=1,b=10){
-  h11<- 2-4*b*x[2]+12*b*x[1]^2
-  h12<- -4*b*x[1]
-  h22<- 2*b
-  matrix(c(h11,h12,h12,h22),nrow=2)
-}
-solution<-data.frame(x=1,y=1)
-
-xlo<- -4; xhi<- 4; ylo<- -3; yhi<-12
-pd<-expand.grid(x=seq(xlo,xhi,.04),y=seq(ylo,yhi,.04))
-pd$z<-apply(pd,1,rosenbrock_f)
-ggplot(pd,aes(x=x,y=y))+geom_raster(aes(fill=log1p(z)))+scale_fill_continuous(low="red",high="blue")+theme_classic()
-(base_plot<-ggplot(pd)+geom_contour(aes(x=x,y=y,z=log1p(z),colour=..level..))+scale_colour_continuous(low="red",high="blue")+geom_point(data=solution,aes(x,y),colour="red",size=10,shape="x")+theme_bw()+coord_cartesian(xlim=c(xlo,xhi),ylim=c(ylo,yhi)))
-ggs("rosenbrock")
-```
-
-built-in solver nloptr L-BFGS
-
-```{r}
-nloptr_lbfgs<-function(f,g,x_init,maxIter=MAXITER){
-  opts<-list(algorithm="NLOPT_LD_LBFGS",ftol_abs=TOLERANCE,maxeval=maxIter)
-  res<-matrix(0,nrow=maxIter,ncol=3)
-  colnames(res)<-c("x","y","f")
-  t<-0
-  ff<-function(x){
-    t<<-t+1
-    res[t,1:2]<<-x
-    return(res[t,3]<<-f(x))
-  }
-  gg<-function(x){ g(x) }
-  fit<-nloptr(x0=x_init,eval_f=ff,eval_grad_f=gg,opts=opts)
-  if(fit$status<0){
-    warning("NLOPT failed to converge with status: ",fit$status)
-  } else if(fit$status==5){
-    warning("NLOPT reached max iteration limit without converging!")
-  } else {
-    message("NLOPT converged with status: ",fit$status)
-  }
-  unique(as.data.frame(res[1:t,]))
-}
-res[["nloptr"]]<-nloptr_lbfgs(rosenbrock_f,rosenbrock_g,c(3,5))
-base_plot+geom_path(aes(x=x,y=y),data=res$nloptr)
-```
-
-simple gradient descent
-
-```{r}
-res<-list()
-res[["gd"]]<-grad_descent(rosenbrock_f,rosenbrock_g,c(3,5))
-base_plot+geom_path(aes(x=x,y=y),data=res$gd)
-ggs("gd")
-```
-
-gradient descent with momentum
-
-```{r}
-res[["mtm"]]<-momentum(rosenbrock_f,rosenbrock_g,c(3,5),stp=.002)
-base_plot+geom_path(data=res$mtm,aes(x,y))
-ggs("mtm")
-```
-
-gradient descent with Nesterov momentum
-
-```{r}
-res[["nstv"]]<-nesterov(rosenbrock_f,rosenbrock_g,c(3,5),stp=.002)
-base_plot+geom_path(data=res$nstv,aes(x,y))
-ggs("nstv")
-```
-
-improved rprop
-
-```{r}
-res[["irprop"]]<-irprop(rosenbrock_f,rosenbrock_g,c(3,5))
-base_plot+geom_path(data=res$irprop,aes(x,y))
-#with(tail(res$irprop,20),plot(x,y,type="l"))
-```
-
-adamax- Adam with infinity norm
-
-```{r}
-res[["admx"]]<-adamax(rosenbrock_f,rosenbrock_g,c(3,5),stp=3)
-base_plot+geom_path(data=res$admx,aes(x,y))
-#with(tail(res$admx,500),plot(x,y,type="l"))
-ggs("admx")
-```
-
-nadam- Adam with nesterov momentum
-
-```{r}
-res[["nadm"]]<-nadam(rosenbrock_f,rosenbrock_g,c(3,5),stp=3)
-base_plot+geom_path(data=res$nadm,aes(x,y))
-#with(tail(res$admx,500),plot(x,y,type="l"))
-ggs("nadm")
-```
-
-avagrad
-
-```{r}
-res[["avagrad"]]<-avagrad(rosenbrock_f,rosenbrock_g,c(3,5),stp=.1,adam_eps_param =.1)
-base_plot+geom_path(data=res$avagrad,aes(x,y))
-ggs("avagrad")
-```
-
-Newton-Raphson with full hessian
-
-```{r}
-res[["newton_full"]]<-newton_full(rosenbrock_f,rosenbrock_g,rosenbrock_h,c(3,5))
-base_plot+geom_path(aes(x=x,y=y),data=res$newton_full)
-ggs("newton_full")
-```
-
-Approximate Newton-Raphson with diagonal hessian
-
-```{r}
-res[["newton_diag"]]<-newton_diag(rosenbrock_f,rosenbrock_g,rosenbrock_h,c(3,5),stp=.95)
-base_plot+geom_path(aes(x=x,y=y),data=res$newton_diag)
-ggs("newton_diag")
-```
-
-summary of results
-
-```{r}
-pd2<-data.frame(method=names(res),nSteps=sapply(res,nrow))
-pd2$err<-sapply(res,function(x){x[nrow(x),3]})
-pd2$method<-factor(pd2$method,levels=pd2$method[order(pd2$err)])
-ggplot(pd2)+geom_bar(aes(x=method,y=err),stat="identity")
-#bad<-pd2$err>1e-3
-ggplot(subset(pd2,err<1e-3))+geom_bar(aes(x=method,y=err),stat="identity")
-pd2$method<-factor(pd2$method,levels=pd2$method[order(pd2$nSteps)])
-ggplot(pd2)+geom_bar(aes(x=method,y=nSteps),stat="identity")
-```

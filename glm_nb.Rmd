@@ -1,0 +1,135 @@
+---
+title: "Negative binomial GLM benchmarking"
+author: "Will Townes"
+output: html_document
+---
+
+```{r}
+library(ggplot2)
+pth<-"plots/glm_nb"
+if(!dir.exists(pth)){ dir.create(pth,recursive=TRUE) }
+ggs<-function(x,w=6,h=4){
+  ggsave(file=file.path(pth,paste0(x,".pdf")),width=w,height=h)
+}
+source("./algorithms.R")
+```
+
+### Negative binomial GLM
+
+simulate some data
+
+```{r}
+set.seed(101)
+n<-100; phi<-1.5
+X<-cbind(1,rnorm(n))
+beta<-c(1,-1)
+y<-rnbinom(n,phi,mu=exp(X%*%beta))
+```
+
+```{r}
+library(MASS)
+fit<-glm.nb(y~X-1)
+summary(fit)
+```
+
+define deviance loss, score function, observed and expected information
+
+```{r}
+nb_deviance<-function(beta){
+  mu<-drop(exp(X%*%unlist(beta)))
+  sum(dnbinom(y,phi,mu=y,log=TRUE))-sum(dnbinom(y,phi,mu=mu,log=TRUE))
+}
+
+nb_score<-function(beta){
+  mu<-drop(exp(X%*%unlist(beta)))
+  h<-mu
+  v<-mu+(1/phi)*mu^2
+  crossprod(X,(h/v)*(y-mu))
+}
+
+nb_grad<-function(beta){-nb_score(beta)} #gradient of deviance
+
+nb_fisher_info<-function(beta){
+  mu<-drop(exp(X%*%unlist(beta)))
+  h<-mu
+  v<-mu+(1/phi)*mu^2
+  crossprod(X,(h^2/v)*X)
+}
+
+nb_observed_info<-function(beta){
+  mu<-drop(exp(X%*%unlist(beta)))
+  h<-mu
+  d2mu_deta2<-mu 
+  v<-mu+(1/phi)*mu^2
+  vprime<-1+(2/phi)*mu
+  inner<-(v+(y-mu)*vprime)*(h^2/v^2) - (y-mu)*d2mu_deta2/v
+  crossprod(X,inner*X)
+}
+
+nb_fisher_info(beta)
+nb_observed_info(beta)
+```
+
+plot contours of loss function
+
+```{r}
+solution<-data.frame(a=1,b=-1)
+
+alo<- -3; ahi<- 5; blo<- -5; bhi<-3
+pd<-expand.grid(a=seq(alo,ahi,.04),b=seq(blo,bhi,.04))
+pd$dev<-apply(pd,1,nb_deviance)
+ggplot(pd,aes(x=a,y=b))+geom_raster(aes(fill=log(log(dev))))+scale_fill_continuous(low="red",high="blue")+theme_classic()
+(base_plot<-ggplot(pd)+geom_contour(aes(x=a,y=b,z=log(log(dev)),colour=..level..),bins=20)+scale_colour_continuous(low="red",high="blue")+geom_point(data=solution,aes(a,b),colour="red",size=10,shape="x")+theme_bw()+coord_cartesian(xlim=c(alo,ahi),ylim=c(blo,bhi))+xlab("intercept (beta0)")+ylab("slope (beta1)"))
+ggs("glm_nb")
+```
+
+Evaluate different optimizers
+
+```{r}
+start<- c(-3,-2)
+```
+
+simple gradient descent
+
+```{r}
+res<-list()
+res[["gradient_descent"]]<-grad_descent(nb_deviance,nb_grad,start)
+base_plot+geom_path(aes(x=x,y=y),data=res$gradient_descent)
+ggs("gd")
+```
+
+avagrad
+
+```{r}
+res[["avagrad"]]<-avagrad(nb_deviance,nb_grad,start,stp=.01)#,adam_eps_param=.1)
+base_plot+geom_path(data=res$avagrad,aes(x,y))
+ggs("avagrad")
+```
+
+Fisher scoring (full matrix)
+
+```{r}
+res[["fisher_scoring"]]<-newton_full(nb_deviance,nb_grad,nb_fisher_info,start)
+base_plot+geom_path(aes(x=x,y=y),data=res$fisher_scoring)
+ggs("fisher_scoring")
+```
+
+Newton-Raphson with full hessian (observed information)- numerical divergence
+
+```{r}
+#res[["newton_raphson"]]<-newton_full(nb_deviance,nb_grad,nb_observed_info,start)
+#base_plot+geom_path(aes(x=x,y=y),data=res$newton_raphson)
+#ggs("newton_raphson")
+```
+
+summary of results
+
+```{r}
+pd2<-data.frame(method=names(res),nSteps=sapply(res,nrow))
+pd2$err<-sapply(res,function(x){x[nrow(x),3]})
+pd2$method<-factor(pd2$method,levels=pd2$method[order(pd2$err)])
+ggplot(pd2)+geom_bar(aes(x=method,y=err),stat="identity")
+pd2$method<-factor(pd2$method,levels=pd2$method[order(pd2$nSteps)])
+ggplot(pd2)+geom_bar(aes(x=method,y=nSteps),stat="identity")+ylab("number of steps")
+ggs("nsteps")
+```

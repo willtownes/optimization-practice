@@ -1,0 +1,39 @@
+---
+title: "Loss function visualization"
+author: "Will Townes"
+output: html_document
+---
+
+```{r}
+bernoulli_deviance<-function(mu,y=0){
+  dbinom(y,1,y,log=TRUE)-dbinom(y,1,mu,log=TRUE)
+}
+poisson_deviance<-function(mu,y=0){
+  dpois(y,y,log=TRUE)-dpois(y,mu,log=TRUE)
+}
+normal_deviance<-function(mu,y=0,sigma=1){
+  dnorm(y,y,sd=sigma,log=TRUE)-dnorm(y,mu,sd=sigma,log=TRUE)
+}
+```
+
+```{r}
+x<-seq(from=.001,to=5,length.out=200)
+pd0<-poisson_deviance(x,0)
+pd1<-poisson_deviance(x,1)
+pd2<-poisson_deviance(x,2)
+plot(x,pd0,type="l",lwd=3,xlab="prediction",ylab="GLM loss (deviance)",main="Poisson")
+lines(x,pd1,col="blue",lwd=3)
+lines(x,pd2,col="red",lwd=3)
+legend("top",c("y=0","y=1","y=2"),col=c("black","blue","red"),lwd=3)
+```
+
+```{r}
+x<-seq(from=-2,to=5,length.out=200)
+pd0<-normal_deviance(x,0)
+pd1<-normal_deviance(x,1)
+pd2<-normal_deviance(x,2)
+plot(x,pd0,type="l",lwd=3,xlab="prediction",ylab="GLM loss (deviance)",main="Gaussian")
+lines(x,pd1,col="blue",lwd=3)
+lines(x,pd2,col="red",lwd=3)
+legend("top",c("y=0","y=1","y=2"),col=c("black","blue","red"),lwd=3)
+```
